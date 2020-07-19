@@ -17,6 +17,7 @@ export interface Document {
 	readonly rootItemID: ItemID,
 	readonly tableOfContentsItemID: ItemID | undefined,
 	readonly focusedItemID: ItemID | undefined,
+	editedSinceSave: boolean,
 	readonly selection: SelectionRange | undefined,
 	readonly items: ItemDictionary,
 }
@@ -94,6 +95,7 @@ export function regenerateIDs(d: Document, curr: Item | undefined = d.items.get(
 		focusedItemID: newFocus,
 		rootItemID: newRoot,
 		tableOfContentsItemID: newTOC,
+		editedSinceSave: d.editedSinceSave,
 		items: newItems,
 		title: d.title,
 	}
@@ -125,6 +127,7 @@ export function getEmptyDocument(): Document {
 		focusedItemID: "root",
 		tableOfContentsItemID: undefined,
 		selection: undefined,
+		editedSinceSave: false,
 		items: Map<ItemID, Item>([
 			["root", rootItem] as [string, Item]
 		])

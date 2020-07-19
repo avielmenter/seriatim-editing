@@ -1,8 +1,8 @@
 import { List, Map } from 'immutable';
 
-import { Document } from '../document';
-import { Item, ItemID, CursorPosition } from '../document/item';
-import Style, { validateUnitType } from '../document/style';
+import { Document } from './document';
+import { Item, ItemID, CursorPosition } from './document/item';
+import Style, { validateUnitType } from './document/style';
 
 import { Event } from './events';
 
@@ -93,6 +93,7 @@ export function parseDocument(raw: any): Document | undefined {
     const rootItemID = raw.rootItemID;
     const tableOfContentsItemID = raw.tableOfContentsItemID;
     const focusedItemID = raw.focusedItemID;
+    const editedSinceSave = raw.editedSinceSave;
 
     const start = raw.selection?.start;
     const end = raw.selection?.end;
@@ -108,7 +109,8 @@ export function parseDocument(raw: any): Document | undefined {
         || typeof title != "string"
         || typeof rootItemID != "string"
         || (typeof tableOfContentsItemID != "string" && typeof tableOfContentsItemID != "undefined")
-        || (typeof focusedItemID != "string" && typeof focusedItemID != "undefined"))
+        || (typeof focusedItemID != "string" && typeof focusedItemID != "undefined")
+        || typeof editedSinceSave != "boolean")
         return undefined;
 
     return {
@@ -118,6 +120,7 @@ export function parseDocument(raw: any): Document | undefined {
         rootItemID,
         tableOfContentsItemID,
         focusedItemID,
+        editedSinceSave,
         items,
         selection
     }
