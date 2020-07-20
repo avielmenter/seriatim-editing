@@ -35,6 +35,8 @@ function parseStyle(raw: any): Style | undefined {
             if (typeof nvalue != "number" || !validateUnitType(unit))
                 return undefined;
             return { property, value: nvalue, unit }
+        default:
+            return undefined;
     }
 }
 
