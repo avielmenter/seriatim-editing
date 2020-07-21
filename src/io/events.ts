@@ -17,7 +17,9 @@ export type Event
     = UpdateIDsEvent
     | UpdateItemEvent;
 
-export function reducer(document: Document, event: Event): Document {
+export type Reducer = (document: Document, event: Event) => Document;
+
+export const reducer: Reducer = (document: Document, event: Event): Document => {
     switch (event.code) {
         case "UPDATE_IDS":
             return updateItemIDs(document, event.data);
