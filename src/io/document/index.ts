@@ -410,18 +410,29 @@ export function unindentItem(document: Document, item: Item): { document: Docume
 
 export function updateItems(document: Document, ...items: Item[]): Document {
 	let newItems = document.items;
+	let title = document.title;
+	let editedSinceSave = false;
 
 	for (const item of items) {
 		const parent = document.items.get(item.parentID);
 
-		if (document.items.get(item.itemID) != undefined)
+		if (document.items.get(item.itemID) != undefined) {
 			newItems = newItems.set(item.itemID, item);
-		else if (parent != undefined)
+			editedSinceSave = editedSinceSave || document.items.get(item.itemID)?.text != item.text;
+		}
+		else if (parent != undefined) {
 			newItems = addItem(document, parent, 0, item).items;
+			editedSinceSave = true;
+		}
+
+		title = item.itemID == document.rootItemID
+			? item.text
+			: document.title;
 	}
 
 	return {
 		...document,
+		title,
 		items: newItems
 	}
 }

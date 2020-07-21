@@ -3,28 +3,22 @@ import { Map, List } from 'immutable';
 import { Document, updateItemIDs, updateItems } from './document';
 import { Item, ItemID } from './document/item';
 
-export type UpdateItemEvent = {
-    code: "UPDATE_ITEMS",
-    data: List<Item>
-}
+import { Action, reducer as documentReducer } from './document/reducers';
 
-export type UpdateIDsEvent = {
-    code: "UPDATE_IDS",
-    data: Map<ItemID, ItemID>
+export type UpdateDocumentEvent = {
+    code: "UPDATE_DOCUMENT",
+    data: Action
 }
 
 export type Event
-    = UpdateIDsEvent
-    | UpdateItemEvent;
+    = UpdateDocumentEvent;
 
 export type Reducer = (document: Document, event: Event) => Document;
 
 export const reducer: Reducer = (document: Document, event: Event): Document => {
     switch (event.code) {
-        case "UPDATE_IDS":
-            return updateItemIDs(document, event.data);
-        case "UPDATE_ITEMS":
-            return updateItems(document, ...event.data.toArray());
+        case "UPDATE_DOCUMENT":
+            return documentReducer(document, event.data) || document;
         default:
             return document;
     }

@@ -1,10 +1,12 @@
 import { List, Map } from 'immutable';
 
-import { Document } from './document';
+import { Document, removeItem } from './document';
 import { Item, ItemID, CursorPosition } from './document/item';
 import Style, { validateUnitType } from './document/style';
 
 import { Event } from './events';
+import * as DocumentReducer from './document/reducers';
+import * as ItemReducer from './document/reducers/item';
 
 const parseMap = <T>(raw: { [key: string]: any }, parse: (raw: any) => T | undefined) => Map<string, T>(
     Object.keys(raw)
@@ -128,17 +130,147 @@ export function parseDocument(raw: any): Document | undefined {
     }
 }
 
+function parseActionType<T extends DocumentReducer.Action | ItemReducer.Action>(raw: any, dataTypes: { [key: string]: string } = {}): T | undefined {
+    if (!raw?.type)
+        return undefined;
+
+    const data = Object.keys(dataTypes).reduce(
+        (p: any, c) => {
+            if (p === undefined)
+                return undefined;
+
+            let param = (typeof raw[c] == dataTypes[c]) && raw[c];
+
+            if (c == "item")
+                param = parseItem(raw[c]);
+            else if (c == "document")
+                param = parseDocument(raw[c]);
+            else if (c == "style")
+                param = parseStyle(raw[c]);
+
+            if (!param)
+                return undefined;
+
+            return { ...p, [c]: param };
+        }, {}
+    );
+
+    return !data ? undefined : { type: raw.type, data } as T;
+}
+
+function parseItemAction<T extends ItemReducer.Action>(raw: any): ItemReducer.Action | undefined {
+    const action = raw as ItemReducer.Action;
+    if (!raw?.type)
+        return undefined;
+
+    switch (action.type) {
+        case "AddImage":
+        case "AddURL":
+        case "BlockQuote":
+        case "ClearFormatting":
+        case "EmboldenItem":
+        case "ItalicizeItem":
+        case "Unquote":
+            return parseActionType(raw);
+        case "ClearStyle":
+            return parseActionType(raw, { style: "string" });
+        case "UpdateCursor":
+            const cp = raw?.cursorPosition;
+            const start = cp?.start;
+            const length = cp?.length;
+            const synced = cp?.synced;
+
+            if (cp && (typeof start != "number" || typeof length != "number" || typeof synced != "boolean"))
+                return undefined;
+
+            return { type: "UpdateCursor", data: { cursorPosition: cp ? { start, length, synced } : undefined } };
+        case "UpdateItemText":
+            return parseActionType(raw, { newText: "string" });
+        case "UpdateStyle":
+            return parseActionType(raw, { style: "style" });
+        default:
+            return undefined;
+    }
+}
+
+function parseAction(raw: any): DocumentReducer.Action | undefined {
+    const action = raw as DocumentReducer.Action;
+    if (!action?.type)
+        return undefined;
+
+    switch (action.type) {
+        case "AddItemAfterSibling":
+            return parseActionType(raw, { focusOnNew: "boolean", sibling: "item" })
+        case "AddItemToParent":
+            return parseActionType(raw, { parent: "item" });
+        case "IndentItem":
+            return parseActionType(raw, { item: "item" });
+        case "IndentSelection":
+            return parseActionType(raw);
+        case "InitializeDocument":
+            const idType = raw.type;
+            const idDocument = parseDocument(raw?.data?.document) || null;
+            return idType ? { type: "InitializeDocument", data: { document: idDocument } } : undefined;
+        case "MakeHeader":
+            return parseActionType(raw, { item: "item" });
+        case "MakeItem":
+            return parseActionType(raw, { item: "item" });
+        case "MakeSelectionHeader":
+        case "MakeSelectionItem":
+        case "MarkSaved":
+        case "MarkUnsaved":
+            return parseActionType(raw);
+        case "MultiSelect":
+            return { type: "MultiSelect", data: { item: raw?.data?.item } }
+        case "Paste":
+            return parseActionType(raw, { item: "item", clipboard: "document" });
+        case "RefreshTableOfContents":
+            return parseActionType(raw);
+        case "RemoveItem":
+            return parseActionType(raw, { item: "item" });
+        case "RemoveSelection":
+            return parseActionType(raw);
+        case "ToggleItemCollapse":
+            return parseActionType(raw, { item: "item " });
+        case "UnindentItem":
+            return parseActionType(raw, { item: "item " });
+        case "UnindentSelection":
+            return parseActionType(raw);
+        case "UpdateItem":
+            const uiType = raw.type;
+            const uiItem = parseItem(raw?.data?.item);
+            const uiAction = parseItemAction(raw?.data?.action);
+
+            if (!uiItem || !uiAction)
+                return undefined;
+
+            return { type: "UpdateItem", data: { item: uiItem, action: uiAction } };
+        case "UpdateItemIDs":
+            const newIDs = raw.newIDs && Map<ItemID, ItemID>(raw.newIDs);
+            return { type: "UpdateItemIDs", data: { newIDs } };
+        case "UpdateSelection":
+            const usType = raw.type;
+            const usAction = parseItemAction(raw?.data?.action);
+
+            if (!usType || !usAction)
+                return undefined;
+
+            return { type: "UpdateSelection", data: { action: usAction } };
+        default:
+            return undefined;
+    }
+}
+
 export function parseEvent(raw: any): Event | undefined {
     if (!raw || !raw.code)
         return undefined;
 
     switch (raw.code) {
-        case "UPDATE_IDS":
-            const ids = raw.data && parseMap(raw.data, (s) => s).filter((v): v is ItemID => typeof v == "string");
-            return { code: "UPDATE_IDS", data: ids }
-        case "UPDATE_ITEMS":
-            const items = raw.data && parseList(raw.data, parseItem);
-            return { code: "UPDATE_ITEMS", data: items };
+        case "UPDATE_DOCUMENT":
+            const action = parseAction(raw?.data);
+            if (!action)
+                return undefined;
+            return { code: "UPDATE_DOCUMENT", data: action };
         default:
             return undefined;
     }
