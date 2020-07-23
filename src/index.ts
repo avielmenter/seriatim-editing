@@ -56,6 +56,10 @@ io.on('connection', socket => {
 
     function on<T extends ClientEvent | Event>(name: EventType<T>, onEvent: (input: T) => void, parseInput: (raw: any) => T | undefined): void {
         socket.on(name, (data: EventData<T>) => {
+            console.log("EVENT", name, "TRIGGERED FROM SOCKET ID ", socket.id);
+            console.log(data);
+            console.log();
+
             try {
                 const input = parseInput(data);
                 if (!input)
@@ -70,8 +74,11 @@ io.on('connection', socket => {
 
     const onHandshake: EventHandler<ClientHandshake> = async (handshakeEvent: ClientHandshake) => {
         const handshake = handshakeEvent.data;
+        const sessionID = socket.handshake.headers;
 
-        const session = await getSessionByID(redis, handshake.sessionID);
+        console.log(sessionID);
+
+        const session = await getSessionByID(redis, sessionID);
         if (session === undefined)
             throw err("NOT_LOGGED_IN", "You are not logged in.");
 

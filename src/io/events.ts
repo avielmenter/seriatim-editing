@@ -14,7 +14,6 @@ export type Event
 export type ClientHandshake = {
     code: "CLIENT_HANDSHAKE",
     data: {
-        sessionID: string,
         documentID: string,
         document: Document
     }
