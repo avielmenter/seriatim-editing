@@ -1,37 +1,26 @@
 // CSS UNITS
 
-export type LengthUnit
-	= "cm"
-	| "mm"
-	| "in"
-	| "px"
-	| "pt"
-	| "pc"
-	| "em"
-	| "ex"
-	| "ch"
-	| "rem"
-	| "vw"
-	| "vh"
-	| "vmin"
-	| "vmax"
-	| "%";
+export const LengthUnits = [
+	"cm",
+	"mm",
+	"in",
+	"px",
+	"pt",
+	"pc",
+	"em",
+	"ex",
+	"ch",
+	"rem",
+	"vw",
+	"vh",
+	"vmin",
+	"vmax",
+	"%"
+] as const;
 
-export const validateUnitType = (unit: string): unit is LengthUnit => unit == "cm"
-	|| unit == "mm"
-	|| unit == "in"
-	|| unit == "px"
-	|| unit == "pt"
-	|| unit == "pc"
-	|| unit == "em"
-	|| unit == "ex"
-	|| unit == "ch"
-	|| unit == "rem"
-	|| unit == "vw"
-	|| unit == "vh"
-	|| unit == "vmin"
-	|| unit == "vmax"
-	|| unit == "%";
+export type LengthUnit = typeof LengthUnits[number];
+
+export const validateLengthUnit = (u: string): u is LengthUnit => LengthUnits.includes(u as LengthUnit);
 
 // CSS PROPERTIES
 

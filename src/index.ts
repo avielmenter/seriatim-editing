@@ -5,10 +5,11 @@ import { closeDocument, connect, getSessionByID } from './redis';
 import { OpenDocument } from './redis/openDocument';
 
 import { Document } from './io/document';
-import { Event, reducer } from './io/events';
+import { ClientEvent, Event, reducer, ServerEvent, ClientHandshake, EditEvent, EventType, EventData } from './io/events';
 
-import { HandshakeEvent, parseHandshake } from './serverEvents';
-import { parseEvent } from './io/parse';
+import { parseClientHandshake, parseEditEvent } from './io/parse';
+
+// TYPES
 
 type ErrorCode
     = "DOCUMENT_UNOPENED"
@@ -21,10 +22,20 @@ type Error = {
     message: string
 }
 
-const send_error = (socket: SocketIO.Socket, error: any) => socket.emit(JSON.stringify({ status: "ERROR", error }));
-const send_event = (socket: SocketIO.Socket, event: Event) => socket.emit(JSON.stringify({ status: "EVENT", event }));
+type EventHandler<T extends ClientEvent | Event> = (event: T) => Promise<void>;
+
+// HELPER FUNCTIONS
+
+const send_error = (socket: SocketIO.Socket, error: any) =>
+    socket.emit("SERVER_ERROR", JSON.stringify({ code: "SERVER_ERROR", data: error }));
+
+
+const send_event = (socket: SocketIO.Socket, event: Event | ServerEvent) =>
+    socket.emit(event.code, JSON.stringify(event));
 
 const err = (code: ErrorCode, message: string): Error => ({ code, message });
+
+// SETUP
 
 DotEnv.config();
 
@@ -43,21 +54,21 @@ io.on('connection', socket => {
         }
     }
 
-    const wrapAndValidate =
-        <T>(onEvent: (input: T) => void, parseInput: (raw: any) => T | undefined) =>
-            (data: any) => {
-                try {
-                    const input = parseInput(data);
-                    if (!input)
-                        throw err("INVALID_DATA", "You did not send data to the server in the correct format.");
+    function on<T extends ClientEvent | Event>(name: EventType<T>, onEvent: (input: T) => void, parseInput: (raw: any) => T | undefined): void {
+        socket.on(name, (data: EventData<T>) => {
+            try {
+                const input = parseInput(data);
+                if (!input)
+                    throw err("INVALID_DATA", "You did not send data to the server in the correct format.");
 
-                    onEvent(input);
-                } catch (e) {
-                    send_error(socket, e);
-                }
-            };
+                onEvent(input);
+            } catch (e) {
+                send_error(socket, e);
+            }
+        });
+    }
 
-    const onHandshake = async (handshakeEvent: HandshakeEvent) => {
+    const onHandshake: EventHandler<ClientHandshake> = async (handshakeEvent: ClientHandshake) => {
         const handshake = handshakeEvent.data;
 
         const session = await getSessionByID(redis, handshake.sessionID);
@@ -78,11 +89,11 @@ io.on('connection', socket => {
             Documents[od.documentID] = handshake.document;
         }
 
-        send_event(socket, { code: "UPDATE_ITEMS", data: liveDocument.items.valueSeq().toList() });
+        send_event(socket, { code: "SERVER_HANDSHAKE", data: liveDocument });
         socket.join(od.documentID);
     }
 
-    const onEdit = async (event: Event) => {
+    const onEdit: EventHandler<EditEvent> = async (event: EditEvent) => {
         let od = OpenDocuments[socket.id];
         let doc = Documents[od?.documentID || ""];
         if (!od || !doc)
@@ -105,8 +116,8 @@ io.on('connection', socket => {
         await closeDocument(redis, session, od.documentID);
     }
 
-    socket.on('handshake', wrapAndValidate(onHandshake, parseHandshake));
-    socket.on('edit', wrapAndValidate(onEdit, parseEvent));
+    on("CLIENT_HANDSHAKE", onHandshake, parseClientHandshake);
+    on("EDIT_DOCUMENT", onEdit, parseEditEvent);
     socket.on('disconnect', wrap(onDisconnect));
 });
 

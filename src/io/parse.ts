@@ -1,10 +1,10 @@
 import { List, Map } from 'immutable';
 
-import { Document, removeItem } from './document';
+import { Document } from './document';
 import { Item, ItemID, CursorPosition } from './document/item';
-import Style, { validateUnitType } from './document/style';
+import Style, { LengthUnit, validateLengthUnit } from './document/style';
 
-import { Event } from './events';
+import { ServerError, EditEvent, ServerHandshake, ClientHandshake } from './events';
 import * as DocumentReducer from './document/reducers';
 import * as ItemReducer from './document/reducers/item';
 
@@ -34,7 +34,7 @@ function parseStyle(raw: any): Style | undefined {
         case "lineHeight":
             const nvalue = raw.value;
             const unit = raw.unit;
-            if (typeof nvalue != "number" || !validateUnitType(unit))
+            if (typeof nvalue != "number" || !validateLengthUnit(unit))
                 return undefined;
             return { property, value: nvalue, unit }
         default:
@@ -261,17 +261,54 @@ function parseAction(raw: any): DocumentReducer.Action | undefined {
     }
 }
 
-export function parseEvent(raw: any): Event | undefined {
-    if (!raw || !raw.code)
+export function parseEditEvent(raw: any): EditEvent | undefined {
+    const code = raw?.code;
+
+    if (code != "UPDATE_DOCUMENT")
         return undefined;
 
-    switch (raw.code) {
-        case "UPDATE_DOCUMENT":
-            const action = parseAction(raw?.data);
-            if (!action)
-                return undefined;
-            return { code: "UPDATE_DOCUMENT", data: action };
-        default:
-            return undefined;
-    }
+    const data = parseAction(raw?.data);
+
+    return data
+        ? { code, data }
+        : undefined;
+}
+
+export function parseServerHandshake(raw: any): ServerHandshake | undefined {
+    const code = raw?.code;
+
+    if (code != "SERVER_HANDSHAKE")
+        return undefined;
+
+    const data = parseDocument(raw.document);
+    return data
+        ? { code, data }
+        : undefined;
+}
+
+export function parseServerError(raw: any): ServerError | undefined {
+    const code = raw?.code;
+
+    if (code != "SERVER_ERROR")
+        return undefined;
+
+    const data = raw.data;
+    return { code, data };
+}
+
+export function parseClientHandshake(raw: any): ClientHandshake | undefined {
+    const code = raw?.code;
+
+    if (code != "CLIENT_HANDSHAKE")
+        return undefined;
+
+    const { sessionID, documentID } = raw.data;
+    const document = parseDocument(raw.document);
+
+    if (!document || typeof sessionID != "string" || typeof documentID != "string")
+        return undefined;
+
+    return {
+        code: "CLIENT_HANDSHAKE", data: { sessionID, documentID, document }
+    };
 }
