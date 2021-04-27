@@ -22,7 +22,7 @@
     "@types/socket.io": "^2.1.8",
     "dotenv": "^8.2.0",
     "immutable": "^4.0.0-rc.12",
-    "redis": "^3.0.2",
+    "redis": "^3.1.1",
     "socket.io": "^2.3.0"
   }
 }
